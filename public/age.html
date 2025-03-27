@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agendar</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    form .form-group {
+      margin-bottom: 15px;
+    }
+    form label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    form input, form textarea, form select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    form button {
+      background: #800;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    form button:hover {
+      background: #0056b3;
+    }
+    .message {
+      text-align: center;
+      margin-bottom: 10px;
+      color: green;
+    }
+    .error {
+      text-align: center;
+      margin-bottom: 10px;
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <h1>Agendar</h1>
+
+  <!-- Seção para inserir o BI -->
+  <div class="container" id="checkBISection">
+    <h2>Verifique seu BI</h2>
+    <form id="checkBIForm">
+      <div class="form-group">
+        <label for="bi">Número do BI:</label>
+        <input type="text" id="bi" required>
+      </div>
+      <button type="submit">Verificar</button>
+    </form>
+    <div class="error" id="biError"></div>
+  </div>
+
+  <!-- Seção de Registro (aparece se BI não existe) -->
+  <div class="container hidden" id="registerSection">
+    <h2>Agendar novo</h2>
+    <form id="registerForm">
+      <div class="form-group">
+        <label for="regBI">BI:</label>
+        <input type="text" id="regBI" readonly>
+      </div>
+      <div class="form-group">
+        <label for="regNome">Nome:</label>
+        <input type="text" id="regNome" required>
+      </div>
+      <div class="form-group">
+        <label for="regEmail">Email:</label>
+        <input type="email" id="regEmail" required>
+      </div>
+      <div class="form-group">
+        <label for="regTelefone">Telefone:</label>
+        <input type="text" id="regTelefone" required>
+      </div>
+      <button type="submit">Registrar</button>
+    </form>
+    <div class="error" id="registerError"></div>
+  </div>
+
+  <!-- Seção de Agendamento (aparece se BI já está cadastrado ou após o registro) -->
+  <div class="container hidden" id="scheduleSection">
+    <h2>Agendar Doação</h2>
+    <form id="scheduleForm">
+      <!-- Um campo hidden para armazenar o user ID (neste exemplo, o BI será usado como ID único) -->
+      <input type="hidden" id="userBI">
+      <div class="form-group">
+        <label for="scheduleDate">Data da Doação:</label>
+        <input type="date" id="scheduleDate" required>
+      </div>
+      <div class="form-group">
+        <label for="scheduleTime">Hora da Doação:</label>
+        <input type="time" id="scheduleTime" required>
+      </div>
+      <div class="form-group">
+        <label for="scheduleLocal">Local da Doação:</label>
+        <input type="text" id="scheduleLocal" required>
+      </div>
+      <button type="submit">Agendar</button>
+    </form>
+    <div class="message" id="scheduleMessage"></div>
+  </div>
+
+  <script>
+    // Função para obter do localStorage (retorna array ou vazio)
+    function getData(key) {
+      return JSON.parse(localStorage.getItem(key)) || [];
+    }
+
+    // Função para salvar dados no localStorage
+    function saveData(key, data) {
+      localStorage.setItem(key, JSON.stringify(data));
+    }
+
+    // Verificar se o BI já está registrado
+    document.getElementById('checkBIForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const biInput = document.getElementById('bi').value.trim();
+      const biError = document.getElementById('biError');
+      biError.textContent = "";
+      if (!biInput) {
+        biError.textContent = "Por favor, insira o número do BI.";
+        return;
+      }
+
+      // Verifica se o BI existe na base de usuários
+      let users = getData("users");
+      const user = users.find(u => u.bi === biInput);
+
+      if (user) {
+        // Se o usuário existir, mostra a seção de agendamento
+        document.getElementById('userBI').value = user.bi;
+        document.getElementById('checkBISection').classList.add("hidden");
+        document.getElementById('scheduleSection').classList.remove("hidden");
+      } else {
+        // Se não existir, redireciona para o registro
+        document.getElementById('regBI').value = biInput;
+        document.getElementById('checkBISection').classList.add("hidden");
+        document.getElementById('registerSection').classList.remove("hidden");
+      }
+    });
+
+    // Processar registro do novo doador
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const bi = document.getElementById('regBI').value.trim();
+      const nome = document.getElementById('regNome').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const telefone = document.getElementById('regTelefone').value.trim();
+      const registerError = document.getElementById('registerError');
+      registerError.textContent = "";
+
+      if (!bi || !nome || !email || !telefone) {
+        registerError.textContent = "Todos os campos são obrigatórios.";
+        return;
+      }
+
+      let users = getData("users");
+
+      // Verifica novamente se o BI já existe
+      if (users.find(u => u.bi === bi)) {
+        registerError.textContent = "Este BI já está registrado.";
+        return;
+      }
+
+      // Cria o novo usuário
+      const newUser = { bi, nome, email, telefone };
+      users.push(newUser);
+      saveData("users", users);
+
+      // Redireciona para a seção de agendamento
+      document.getElementById('userBI').value = bi;
+      document.getElementById('registerSection').classList.add("hidden");
+      document.getElementById('scheduleSection').classList.remove("hidden");
+    });
+
+    // Processar o agendamento
+    document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const userBI = document.getElementById('userBI').value;
+      const date = document.getElementById('scheduleDate').value;
+      const time = document.getElementById('scheduleTime').value;
+      const localDoacao = document.getElementById('scheduleLocal').value.trim();
+      const scheduleMessage = document.getElementById('scheduleMessage');
+
+      if (!date || !time || !localDoacao) {
+        scheduleMessage.textContent = "Todos os campos de agendamento são obrigatórios.";
+        scheduleMessage.style.color = "red";
+        return;
+      }
+
+      let donations = getData("donations");
+
+      // Cria o agendamento com data de atribuição
+      const newDonation = {
+        userBI,
+        date,
+        time,
+        localDoacao,
+        assignedAt: new Date().toLocaleString()
+      };
+
+      donations.push(newDonation);
+      saveData("donations", donations);
+
+      scheduleMessage.textContent = "Doação agendada com sucesso!";
+      scheduleMessage.style.color = "green";
+      // Limpa o formulário (exceto o campo hidden com o BI)
+      document.getElementById('scheduleForm').reset();
+      document.getElementById('userBI').value = userBI;
+    });
+  </script>
+</body>
+</html>
